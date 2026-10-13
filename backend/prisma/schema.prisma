@@ -1,0 +1,222 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PropertyType {
+  HOUSE
+  APARTMENT
+  STUDIO
+  VILLA
+  TOWNHOUSE
+  HOTEL
+  POUSADA
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+model User {
+  id              Int                @id @default(autoincrement())
+  name            String
+  email           String             @unique
+  password        String
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  properties      Property[]
+  bookings        Booking[]          @relation("GuestBookings")
+  reviews         Review[]           @relation("AuthorReviews")
+  ownedTrips      Trip[]             @relation("OwnedTrips")
+  collaborations  TripCollaborator[]
+  activities      TripActivity[]
+  comments        Comment[]
+  history         TripHistory[]
+}
+
+model Property {
+  id             Int          @id @default(autoincrement())
+  title          String
+  description    String
+  type           PropertyType @default(HOUSE)
+  address        String
+  city           String
+  state          String
+  pricePerNight  Float
+  maxGuests      Int
+  bedrooms       Int
+  bathrooms      Int
+  amenities      String[]
+  imageUrl       String?
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  owner          User         @relation(fields: [ownerId], references: [id])
+  ownerId        Int
+  bookings       Booking[]
+  reviews        Review[]
+}
+
+model Booking {
+  id            Int           @id @default(autoincrement())
+  checkIn       DateTime
+  checkOut      DateTime
+  totalPrice    Float
+  status        BookingStatus @default(PENDING)
+  paymentMethod String?
+  paymentStatus PaymentStatus @default(PENDING)
+  paymentData   Json?
+  createdAt     DateTime      @default(now())
+  property      Property      @relation(fields: [propertyId], references: [id])
+  propertyId    Int
+  guest         User          @relation("GuestBookings", fields: [guestId], references: [id])
+  guestId       Int
+}
+
+model Review {
+  id         Int      @id @default(autoincrement())
+  rating     Int
+  comment    String
+  createdAt  DateTime @default(now())
+  property   Property @relation(fields: [propertyId], references: [id])
+  propertyId Int
+  author     User     @relation("AuthorReviews", fields: [authorId], references: [id])
+  authorId   Int
+}
+
+enum TripType {
+  BEACH
+  CITY_TOUR
+  FLIGHT
+  MOUNTAIN
+  BUSINESS
+  BACKPACKING
+  TREKKING
+  CUSTOM
+}
+
+enum CollaboratorRole {
+  OWNER
+  COLLABORATOR
+  VIEWER
+}
+
+model Trip {
+  id              Int               @id @default(autoincrement())
+  title           String
+  description     String?
+  tripType        TripType          @default(CUSTOM)
+  startDate       DateTime
+  endDate         DateTime
+  owner           User              @relation("OwnedTrips", fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId         Int
+  collaborators   TripCollaborator[]
+  activities      TripActivity[]
+  checklist       TripChecklist?
+  history         TripHistory[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  
+  @@index([ownerId])
+}
+
+model TripCollaborator {
+  id        Int              @id @default(autoincrement())
+  trip      Trip             @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  tripId    Int
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  role      CollaboratorRole @default(VIEWER)
+  joinedAt  DateTime         @default(now())
+  
+  @@unique([tripId, userId])
+  @@index([userId])
+}
+
+model TripActivity {
+  id          Int        @id @default(autoincrement())
+  trip        Trip       @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  tripId      Int
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  createdBy   User       @relation(fields: [createdById], references: [id])
+  createdById Int
+  comments    Comment[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  @@index([tripId])
+  @@index([createdById])
+}
+
+model Comment {
+  id         Int        @id @default(autoincrement())
+  activity   TripActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  activityId Int
+  author     User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId   Int
+  content    String
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  
+  @@index([activityId])
+  @@index([authorId])
+}
+
+model TripHistory {
+  id        Int      @id @default(autoincrement())
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  tripId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  action    String
+  details   Json
+  createdAt DateTime @default(now())
+  
+  @@index([tripId])
+  @@index([userId])
+}
+
+model ChecklistTemplate {
+  id        Int      @id @default(autoincrement())
+  tripType  TripType @unique
+  name      String
+  items     String[]
+  createdAt DateTime @default(now())
+}
+
+model TripChecklist {
+  id              Int             @id @default(autoincrement())
+  trip            Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  tripId          Int             @unique
+  items           ChecklistItem[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model ChecklistItem {
+  id          Int           @id @default(autoincrement())
+  checklist   TripChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  checklistId Int
+  title       String
+  completed   Boolean       @default(false)
+  category    String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  @@index([checklistId])
+}
