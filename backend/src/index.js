@@ -6,7 +6,13 @@ const propertyRoutes = require("./routes/properties");
 const bookingRoutes = require("./routes/bookings");
 const paymentRoutes = require("./routes/payments");
 const reviewRoutes = require("./routes/reviews");
+
+
 const tripRoutes = require("./routes/trips");
+const recommendationRoutes = require("./routes/recommendations");
+const notificationRoutes = require("./routes/notifications");
+const weatherRoutes = require("./routes/weather");
+const { startNotificationScheduler } = require("./services/notificationScheduler");
 
 const app = express();
 
@@ -18,11 +24,17 @@ app.use("/api/properties", propertyRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/reviews", reviewRoutes);
+
+
 app.use("/api/trips", tripRoutes);
+app.use("/api/recommendations", recommendationRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/weather", weatherRoutes);
 
 app.get("/api/health", (req, res) => res.json({ status: "ok", service: "TripSync API" }));
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`✅ TripSync API rodando em http://localhost:${PORT}`);
+  startNotificationScheduler();
 });

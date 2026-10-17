@@ -3,7 +3,6 @@ const router = require("express").Router();
 const auth = require("../middleware/auth");
 const prisma = require("../prisma");
 
-// POST /api/payments/process
 router.post("/process", auth, async (req, res) => {
   try {
     const { bookingId, method, cardData } = req.body;
@@ -67,7 +66,6 @@ router.post("/process", auth, async (req, res) => {
   }
 });
 
-// GET /api/payments/booking/:id
 router.get("/booking/:id", auth, async (req, res) => {
   try {
     const booking = await prisma.booking.findUnique({

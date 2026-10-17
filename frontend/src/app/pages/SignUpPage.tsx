@@ -14,14 +14,22 @@ export default function SignUpPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanedName = name.trim();
+    const cleanedEmail = email.trim().toLowerCase();
+
+    if (cleanedName.length < 2) {
+      toast.error("Informe um nome válido.");
+      return;
+    }
     if (password.length < 6) { toast.error("Senha deve ter ao menos 6 caracteres."); return; }
+
     setLoading(true);
     try {
-      await register(name, email, password);
+      await register(cleanedName, cleanedEmail, password);
       toast.success("Conta criada com sucesso!");
       navigate("/dashboard");
-    } catch {
-      toast.error("Erro ao criar conta. Verifique os dados.");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || "Erro ao criar conta. Verifique os dados.");
     } finally {
       setLoading(false);
     }

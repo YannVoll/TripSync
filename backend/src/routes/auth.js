@@ -10,7 +10,10 @@ const sign = (userId) =>
 
 router.post("/register", async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const name = String(req.body?.name || "").trim();
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const password = String(req.body?.password || "");
+
     if (!name || !email || !password)
       return res.status(400).json({ error: "Preencha todos os campos." });
     if (password.length < 6)
@@ -32,7 +35,8 @@ router.post("/register", async (req, res) => {
 
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const password = String(req.body?.password || "");
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return res.status(401).json({ error: "Credenciais inválidas." });
 

@@ -124,7 +124,6 @@ export default function PropertyDetailPage() {
             <ArrowLeft className="w-4 h-4" /> Voltar para acomodações
           </Link>
 
-          {/* Hero image */}
           <div className="w-full h-72 md:h-96 rounded-2xl overflow-hidden bg-gradient-to-br from-blue-100 to-indigo-200 mb-8">
             {property.imageUrl ? (
               <img src={property.imageUrl} alt={property.title} className="w-full h-full object-cover" />
@@ -136,7 +135,6 @@ export default function PropertyDetailPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Info */}
             <div className="lg:col-span-2 space-y-6">
               <div>
                 <div className="flex items-center gap-2 mb-2">
@@ -179,7 +177,6 @@ export default function PropertyDetailPage() {
                 <p className="text-sm text-gray-500">Anunciado por <span className="font-medium text-gray-800">{property.owner.name}</span></p>
               </div>
 
-              {/* Avaliações */}
               <div className="pt-4 border-t border-gray-100">
                 <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   Avaliações
@@ -210,7 +207,6 @@ export default function PropertyDetailPage() {
                   </div>
                 )}
 
-                {/* Formulário (apenas usuário logado que não é o dono) */}
                 {user && user.id !== property.owner.id && (
                   <div className="bg-white border border-gray-100 rounded-xl p-4">
                     <h3 className="font-medium text-gray-800 text-sm mb-3">Deixe sua avaliação</h3>
@@ -253,7 +249,6 @@ export default function PropertyDetailPage() {
               )}
             </div>
 
-            {/* Booking card */}
             <div className="lg:col-span-1">
               <div className="bg-white rounded-2xl shadow-md p-6 sticky top-24">
                 <div className="mb-4">

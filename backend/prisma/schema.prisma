@@ -4,6 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  
   url      = env("DATABASE_URL")
 }
 
@@ -44,6 +45,7 @@ model User {
   activities      TripActivity[]
   comments        Comment[]
   history         TripHistory[]
+  notifications   TripNotification[] @relation("TripNotifications")
 }
 
 model Property {
@@ -96,6 +98,8 @@ model Review {
   authorId   Int
 }
 
+
+
 enum TripType {
   BEACH
   CITY_TOUR
@@ -117,6 +121,7 @@ model Trip {
   id              Int               @id @default(autoincrement())
   title           String
   description     String?
+  destination     String?
   tripType        TripType          @default(CUSTOM)
   startDate       DateTime
   endDate         DateTime
@@ -126,9 +131,10 @@ model Trip {
   activities      TripActivity[]
   checklist       TripChecklist?
   history         TripHistory[]
+  notifications   TripNotification[] @relation("TripNotifications")
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
-  
+
   @@index([ownerId])
 }
 
@@ -217,6 +223,22 @@ model ChecklistItem {
   category    String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
-  
+
   @@index([checklistId])
 }
+
+model TripNotification {
+  id          Int      @id @default(autoincrement())
+  user        User     @relation("TripNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  userId      Int
+  trip        Trip     @relation("TripNotifications", fields: [tripId], references: [id], onDelete: Cascade)
+  tripId      Int
+  daysBefore  Int      @default(1)
+  email       String
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([tripId])
+}
+

@@ -1,4 +1,4 @@
-import { Plane, Menu, X, User, LogOut, Plus, Home } from "lucide-react";
+import { Plane, Menu, X, User, LogOut, Plus, Home, Bell } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -29,6 +29,9 @@ export default function Header() {
           <nav className="hidden md:flex items-center gap-8">
             <Link to="/properties" className="text-gray-700 hover:text-blue-600 transition-colors flex items-center gap-1">
               <Home className="w-4 h-4" /> Acomodações
+            </Link>
+            <Link to="/notifications" className="text-gray-700 hover:text-blue-600 transition-colors flex items-center gap-1">
+              <Bell className="w-4 h-4" /> Notificações
             </Link>
             {user && (
               <>
@@ -75,6 +78,9 @@ export default function Header() {
         <div className="md:hidden border-t border-gray-100 bg-white px-4 py-6 space-y-4">
           <Link to="/properties" className="block text-gray-700 hover:text-blue-600 py-2" onClick={() => setMobileMenuOpen(false)}>
             Acomodações
+          </Link>
+          <Link to="/notifications" className="block text-gray-700 hover:text-blue-600 py-2" onClick={() => setMobileMenuOpen(false)}>
+            Notificações
           </Link>
           {user ? (
             <>
