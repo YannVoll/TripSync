@@ -2,7 +2,6 @@ const router = require("express").Router();
 const auth = require("../middleware/auth");
 const prisma = require("../prisma");
 
-// GET /api/properties — public listing with optional search
 router.get("/", async (req, res) => {
   try {
     const { search, type } = req.query;
@@ -23,23 +22,22 @@ router.get("/", async (req, res) => {
       },
       orderBy: { createdAt: "desc" },
     });
-    const withRating = properties.map((p) => {
-      const reviewCount = p.reviews.length;
-      const avgRating =
-        reviewCount > 0
-          ? p.reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount
-          : null;
-      const { reviews, ...rest } = p;
-      return { ...rest, avgRating, reviewCount };
-    });
-    res.json(withRating);
+    res.json(
+      properties.map(({ reviews, ...property }) => ({
+        ...property,
+        avgRating:
+          reviews.length > 0
+            ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+            : null,
+        reviewCount: reviews.length,
+      }))
+    );
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "Erro interno." });
   }
 });
 
-// GET /api/properties/my — authenticated user's properties
 router.get("/my", auth, async (req, res) => {
   try {
     const properties = await prisma.property.findMany({
@@ -52,7 +50,6 @@ router.get("/my", auth, async (req, res) => {
   }
 });
 
-// GET /api/properties/:id
 router.get("/:id", async (req, res) => {
   try {
     const property = await prisma.property.findUnique({
@@ -69,7 +66,6 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// POST /api/properties — create (auth required)
 router.post("/", auth, async (req, res) => {
   try {
     const { title, description, type, address, city, state, pricePerNight, maxGuests, bedrooms, bathrooms, amenities, imageUrl } = req.body;
@@ -100,7 +96,6 @@ router.post("/", auth, async (req, res) => {
   }
 });
 
-// PUT /api/properties/:id — update (owner only)
 router.put("/:id", auth, async (req, res) => {
   try {
     const property = await prisma.property.findUnique({ where: { id: parseInt(req.params.id) } });
@@ -117,7 +112,6 @@ router.put("/:id", auth, async (req, res) => {
   }
 });
 
-// DELETE /api/properties/:id — owner only
 router.delete("/:id", auth, async (req, res) => {
   try {
     const property = await prisma.property.findUnique({ where: { id: parseInt(req.params.id) } });

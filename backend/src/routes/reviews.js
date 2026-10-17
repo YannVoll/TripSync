@@ -2,7 +2,6 @@ const router = require("express").Router();
 const auth = require("../middleware/auth");
 const prisma = require("../prisma");
 
-// GET /api/reviews/property/:id — avaliações de um imóvel (público)
 router.get("/property/:id", async (req, res) => {
   try {
     const reviews = await prisma.review.findMany({
@@ -17,7 +16,6 @@ router.get("/property/:id", async (req, res) => {
   }
 });
 
-// POST /api/reviews — criar avaliação (auth)
 router.post("/", auth, async (req, res) => {
   try {
     const { propertyId, rating, comment } = req.body;
@@ -37,7 +35,6 @@ router.post("/", auth, async (req, res) => {
     if (property.ownerId === req.userId)
       return res.status(400).json({ error: "Você não pode avaliar o próprio imóvel." });
 
-    // Só permite avaliar quem já reservou o imóvel
     const hasBooking = await prisma.booking.findFirst({
       where: {
         propertyId: property.id,
@@ -50,7 +47,6 @@ router.post("/", auth, async (req, res) => {
         .status(403)
         .json({ error: "Você só pode avaliar imóveis que reservou." });
 
-    // Evita avaliação duplicada do mesmo usuário no mesmo imóvel
     const existing = await prisma.review.findFirst({
       where: { propertyId: property.id, authorId: req.userId },
     });
@@ -74,7 +70,6 @@ router.post("/", auth, async (req, res) => {
   }
 });
 
-// DELETE /api/reviews/:id — remover avaliação própria (auth)
 router.delete("/:id", auth, async (req, res) => {
   try {
     const review = await prisma.review.findUnique({

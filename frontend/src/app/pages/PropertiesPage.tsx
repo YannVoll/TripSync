@@ -15,6 +15,7 @@ interface Property {
   maxGuests: number;
   imageUrl: string | null;
   owner: { name: string };
+
   avgRating?: number | null;
   reviewCount?: number;
 }
@@ -35,7 +36,6 @@ export default function PropertiesPage() {
     <>
       <Header />
       <main className="pt-20 min-h-screen bg-gray-50">
-        {/* Search bar */}
         <div className="bg-white border-b border-gray-100 py-6">
           <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
@@ -108,7 +108,7 @@ export default function PropertiesPage() {
                         {p.avgRating != null ? (
                           <>
                             <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                            <span>{p.avgRating.toFixed(1)}</span>
+                            <span>{p.avgRating.toFixed(1)} ({p.reviewCount})</span>
                           </>
                         ) : (
                           <span className="text-gray-400">Novo</span>
@@ -125,4 +125,5 @@ export default function PropertiesPage() {
       <Footer />
     </>
   );
+
 }

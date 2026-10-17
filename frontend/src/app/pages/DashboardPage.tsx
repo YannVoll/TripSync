@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Home, Calendar, Trash2, MapPin, Pencil } from "lucide-react";
+import { Plus, Home, Calendar, Trash2, MapPin, Pencil, Plane } from "lucide-react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import api from "../../lib/axios";
@@ -57,12 +57,16 @@ export default function DashboardPage() {
               <h1 className="text-2xl font-bold text-gray-900">Olá, {user.name.split(" ")[0]}!</h1>
               <p className="text-gray-500 text-sm">Gerencie seus anúncios e reservas</p>
             </div>
-            <Link to="/properties/new" className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:from-blue-700 hover:to-indigo-800 text-sm font-medium">
-              <Plus className="w-4 h-4" /> Novo anúncio
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link to="/trips" className="flex items-center gap-2 px-4 py-2 border border-blue-600 text-blue-600 rounded-xl hover:bg-blue-50 text-sm font-medium">
+                <Plane className="w-4 h-4" /> Minhas viagens
+              </Link>
+              <Link to="/properties/new" className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:from-blue-700 hover:to-indigo-800 text-sm font-medium">
+                <Plus className="w-4 h-4" /> Novo anúncio
+              </Link>
+            </div>
           </div>
 
-          {/* My Properties */}
           <section className="mb-10">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2"><Home className="w-5 h-5 text-blue-600" /> Meus imóveis</h2>
             {loading ? <div className="h-32 bg-white rounded-2xl animate-pulse" /> : properties.length === 0 ? (
@@ -102,7 +106,6 @@ export default function DashboardPage() {
             )}
           </section>
 
-          {/* My Bookings */}
           <section>
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2"><Calendar className="w-5 h-5 text-blue-600" /> Minhas reservas</h2>
             {loading ? <div className="h-32 bg-white rounded-2xl animate-pulse" /> : bookings.length === 0 ? (

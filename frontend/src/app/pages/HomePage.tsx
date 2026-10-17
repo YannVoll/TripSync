@@ -14,7 +14,6 @@ export default function HomePage() {
   return (
     <>
       <Header />
-      {/* Hero */}
       <section className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-50 pt-20">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-1.5 rounded-full text-sm font-medium mb-6">
@@ -46,7 +45,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Features */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4">
           <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">Por que escolher a TripSync?</h2>
@@ -64,7 +62,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* CTA */}
       <section className="py-20 bg-gradient-to-r from-blue-600 to-indigo-700 text-white text-center">
         <div className="max-w-2xl mx-auto px-4">
           <h2 className="text-3xl font-bold mb-4">Tem um imóvel para alugar?</h2>
