@@ -3,7 +3,8 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Header from "../components/Header";
-import api from "../../lib/axios";
+import api, { getErrorMessage } from "../../lib/axios";
+import { ACCEPTED_IMAGES, MAX_IMAGE_SIZE, uploadImage } from "../../lib/upload";
 import { toast } from "sonner";
 
 export default function EditPropertyPage() {
@@ -13,6 +14,7 @@ export default function EditPropertyPage() {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [imagePreview, setImagePreview] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   const [form, setForm] = useState({
     title: "",
@@ -33,7 +35,7 @@ export default function EditPropertyPage() {
     setForm((f) => ({ ...f, [field]: value }));
 
   useEffect(() => {
-    if (!user) { navigate("/login"); return; }
+    if (!user) return;
     api.get(`/properties/${id}`).then((res) => {
       const p = res.data;
       if (p.ownerId !== user.id && p.owner?.id !== user.id) {
@@ -62,17 +64,21 @@ export default function EditPropertyPage() {
     }).finally(() => setFetching(false));
   }, [id, user]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { toast.error("Imagem deve ter no máximo 5MB."); return; }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      setImagePreview(result);
-      set("imageUrl", result);
-    };
-    reader.readAsDataURL(file);
+    if (file.size > MAX_IMAGE_SIZE) { toast.error("Imagem deve ter no máximo 5MB."); return; }
+    setUploading(true);
+    setImagePreview(URL.createObjectURL(file));
+    try {
+      set("imageUrl", await uploadImage(file));
+    } catch (error) {
+      setImagePreview(form.imageUrl);
+      toast.error(getErrorMessage(error, "Não foi possível enviar a imagem."));
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -89,8 +95,8 @@ export default function EditPropertyPage() {
       });
       toast.success("Imóvel atualizado com sucesso!");
       navigate(`/properties/${id}`);
-    } catch {
-      toast.error("Erro ao atualizar imóvel.");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao atualizar imóvel."));
     } finally {
       setLoading(false);
     }
@@ -185,7 +191,12 @@ export default function EditPropertyPage() {
               <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center hover:border-blue-400 transition-colors">
                 {imagePreview ? (
                   <div className="relative">
-                    <img src={imagePreview} alt="Preview" className="w-full h-48 object-cover rounded-lg" />
+                    <img src={imagePreview} alt="Preview" className={`w-full h-48 object-cover rounded-lg ${uploading ? "opacity-50" : ""}`} />
+                    {uploading && (
+                      <span className="absolute inset-0 flex items-center justify-center text-sm font-medium text-gray-700">
+                        Enviando imagem...
+                      </span>
+                    )}
                     <button
                       type="button"
                       onClick={() => { setImagePreview(""); set("imageUrl", ""); }}
@@ -196,8 +207,8 @@ export default function EditPropertyPage() {
                   <label className="cursor-pointer flex flex-col items-center gap-2 py-4">
                     <Upload className="w-8 h-8 text-gray-400" />
                     <span className="text-sm text-gray-500">Clique para selecionar uma imagem</span>
-                    <span className="text-xs text-gray-400">PNG, JPG até 5MB</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                    <span className="text-xs text-gray-400">JPG, PNG, WEBP ou GIF até 5MB</span>
+                    <input type="file" accept={ACCEPTED_IMAGES} className="hidden" onChange={handleImageUpload} />
                   </label>
                 )}
               </div>
@@ -210,7 +221,7 @@ export default function EditPropertyPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || uploading}
               className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-bold rounded-xl hover:from-blue-700 hover:to-indigo-800 transition-all disabled:opacity-50 text-lg"
             >
               {loading ? "Salvando..." : "Salvar alterações"}

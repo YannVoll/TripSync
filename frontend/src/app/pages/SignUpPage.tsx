@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Plane } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "../../lib/axios";
 
 export default function SignUpPage() {
   const [name, setName] = useState("");
@@ -28,8 +29,8 @@ export default function SignUpPage() {
       await register(cleanedName, cleanedEmail, password);
       toast.success("Conta criada com sucesso!");
       navigate("/dashboard");
-    } catch (error: any) {
-      toast.error(error?.response?.data?.error || "Erro ao criar conta. Verifique os dados.");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao criar conta. Verifique os dados."));
     } finally {
       setLoading(false);
     }

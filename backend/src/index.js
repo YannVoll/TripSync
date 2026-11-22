@@ -1,37 +1,12 @@
 require("dotenv").config();
-const express = require("express");
-const cors = require("cors");
-const authRoutes = require("./routes/auth");
-const propertyRoutes = require("./routes/properties");
-const bookingRoutes = require("./routes/bookings");
-const paymentRoutes = require("./routes/payments");
-const reviewRoutes = require("./routes/reviews");
 
+if (!process.env.JWT_SECRET) {
+  console.error("❌ JWT_SECRET não configurado no backend/.env");
+  process.exit(1);
+}
 
-const tripRoutes = require("./routes/trips");
-const recommendationRoutes = require("./routes/recommendations");
-const notificationRoutes = require("./routes/notifications");
-const weatherRoutes = require("./routes/weather");
+const app = require("./app");
 const { startNotificationScheduler } = require("./services/notificationScheduler");
-
-const app = express();
-
-app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:5173", credentials: true }));
-app.use(express.json());
-
-app.use("/api/auth", authRoutes);
-app.use("/api/properties", propertyRoutes);
-app.use("/api/bookings", bookingRoutes);
-app.use("/api/payments", paymentRoutes);
-app.use("/api/reviews", reviewRoutes);
-
-
-app.use("/api/trips", tripRoutes);
-app.use("/api/recommendations", recommendationRoutes);
-app.use("/api/notifications", notificationRoutes);
-app.use("/api/weather", weatherRoutes);
-
-app.get("/api/health", (req, res) => res.json({ status: "ok", service: "TripSync API" }));
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

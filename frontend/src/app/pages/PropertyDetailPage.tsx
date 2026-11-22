@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { MapPin, Users, BedDouble, Bath, Wifi, Star, ArrowLeft, Trash2 } from "lucide-react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import api from "../../lib/axios";
+import api, { getErrorMessage } from "../../lib/axios";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
 
@@ -21,7 +21,8 @@ interface Property {
   bathrooms: number;
   amenities: string[];
   imageUrl: string | null;
-  owner: { id: number; name: string; email: string };
+  active: boolean;
+  owner: { id: number; name: string };
   reviews?: Review[];
 }
 
@@ -71,8 +72,8 @@ export default function PropertyDetailPage() {
       setComment("");
       setRating(5);
       loadReviews();
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Erro ao enviar avaliação.");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao enviar avaliação."));
     } finally {
       setSubmittingReview(false);
     }
@@ -91,9 +92,8 @@ export default function PropertyDetailPage() {
     const res = await api.post("/bookings", { propertyId: property!.id, checkIn, checkOut });
     toast.success("Reserva criada! Finalize o pagamento.");
     navigate(`/checkout/${res.data.id}`);
-  } catch (err: any) {
-    const msg = err.response?.data?.error || "Erro ao realizar reserva.";
-    toast.error(msg);
+  } catch (error) {
+    toast.error(getErrorMessage(error, "Erro ao realizar reserva."));
   } finally {
     setBooking(false);
   }
@@ -242,7 +242,7 @@ export default function PropertyDetailPage() {
                 )}
               </div>
 
-              {user?.id === property.owner.id && (
+              {user?.id === property.owner.id && property.active && (
                 <button onClick={handleDelete} className="flex items-center gap-2 text-red-500 hover:text-red-700 text-sm mt-2">
                   <Trash2 className="w-4 h-4" /> Remover anúncio
                 </button>
@@ -251,6 +251,11 @@ export default function PropertyDetailPage() {
 
             <div className="lg:col-span-1">
               <div className="bg-white rounded-2xl shadow-md p-6 sticky top-24">
+                {!property.active && (
+                  <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                    Este anúncio foi removido pelo anfitrião e não aceita novas reservas.
+                  </p>
+                )}
                 <div className="mb-4">
                   <span className="text-2xl font-bold text-blue-600">R$ {property.pricePerNight.toFixed(2)}</span>
                   <span className="text-gray-400"> / noite</span>

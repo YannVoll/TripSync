@@ -1,11 +1,12 @@
 const router = require("express").Router();
 const auth = require("../middleware/auth");
 const prisma = require("../prisma");
+const { parseId } = require("../lib/tripAccess");
 
 router.get("/property/:id", async (req, res) => {
   try {
     const reviews = await prisma.review.findMany({
-      where: { propertyId: parseInt(req.params.id) },
+      where: { propertyId: parseId(req.params.id) ?? 0 },
       include: { author: { select: { id: true, name: true } } },
       orderBy: { createdAt: "desc" },
     });
@@ -28,7 +29,7 @@ router.post("/", auth, async (req, res) => {
       return res.status(400).json({ error: "A nota deve ser entre 1 e 5." });
 
     const property = await prisma.property.findUnique({
-      where: { id: parseInt(propertyId) },
+      where: { id: parseId(propertyId) ?? 0 },
     });
     if (!property) return res.status(404).json({ error: "Imóvel não encontrado." });
 
@@ -73,7 +74,7 @@ router.post("/", auth, async (req, res) => {
 router.delete("/:id", auth, async (req, res) => {
   try {
     const review = await prisma.review.findUnique({
-      where: { id: parseInt(req.params.id) },
+      where: { id: parseId(req.params.id) ?? 0 },
     });
     if (!review) return res.status(404).json({ error: "Avaliação não encontrada." });
     if (review.authorId !== req.userId)

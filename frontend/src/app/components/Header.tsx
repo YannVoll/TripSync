@@ -1,15 +1,32 @@
-import { Plane, Menu, X, User, LogOut, Plus, Home, Bell } from "lucide-react";
+import { Plane, Menu, X, User, LogOut, Plus, Home, Bell, Map as MapIcon, Sparkles, LayoutDashboard } from "lucide-react";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+
+const publicLinks = [{ to: "/properties", label: "Acomodações", icon: Home }];
+
+const privateLinks = [
+  { to: "/trips", label: "Minhas viagens", icon: MapIcon },
+  { to: "/recommendations", label: "Recomendações", icon: Sparkles },
+  { to: "/notifications", label: "Lembretes", icon: Bell },
+  { to: "/dashboard", label: "Meu painel", icon: LayoutDashboard },
+];
+
+const linkClass = ({ isActive }: { isActive: boolean }) =>
+  `flex items-center gap-1.5 text-sm transition-colors ${
+    isActive ? "text-blue-600 font-semibold" : "text-gray-700 hover:text-blue-600"
+  }`;
 
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const links = user ? [...publicLinks, ...privateLinks] : publicLinks;
+  const closeMenu = () => setMobileMenuOpen(false);
 
   const handleLogout = () => {
     logout();
+    closeMenu();
     navigate("/");
   };
 
@@ -26,28 +43,23 @@ export default function Header() {
             </span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-8">
-            <Link to="/properties" className="text-gray-700 hover:text-blue-600 transition-colors flex items-center gap-1">
-              <Home className="w-4 h-4" /> Acomodações
-            </Link>
-            <Link to="/notifications" className="text-gray-700 hover:text-blue-600 transition-colors flex items-center gap-1">
-              <Bell className="w-4 h-4" /> Notificações
-            </Link>
-            {user && (
-              <>
-                <Link to="/dashboard" className="text-gray-700 hover:text-blue-600 transition-colors">
-                  Meu Painel
-                </Link>
-                <Link to="/properties/new" className="flex items-center gap-1 text-blue-600 hover:text-blue-700 font-medium transition-colors">
-                  <Plus className="w-4 h-4" /> Anunciar
-                </Link>
-              </>
-            )}
+          <nav className="hidden lg:flex items-center gap-6">
+            {links.map(({ to, label, icon: Icon }) => (
+              <NavLink key={to} to={to} className={linkClass}>
+                <Icon className="w-4 h-4" /> {label}
+              </NavLink>
+            ))}
           </nav>
 
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden lg:flex items-center gap-4">
             {user ? (
-              <div className="flex items-center gap-3">
+              <>
+                <Link
+                  to="/properties/new"
+                  className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                >
+                  <Plus className="w-4 h-4" /> Anunciar
+                </Link>
                 <span className="text-sm text-gray-700 font-medium">Olá, {user.name.split(" ")[0]}</span>
                 <button
                   onClick={handleLogout}
@@ -55,7 +67,7 @@ export default function Header() {
                 >
                   <LogOut className="w-4 h-4" /> Sair
                 </button>
-              </div>
+              </>
             ) : (
               <>
                 <Link to="/login" className="flex items-center gap-2 text-gray-700 hover:text-blue-600 transition-colors px-4 py-2 rounded-lg border border-gray-200 hover:border-blue-300">
@@ -68,30 +80,32 @@ export default function Header() {
             )}
           </div>
 
-          <button className="md:hidden p-2" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+          <button
+            className="lg:hidden p-2"
+            aria-label={mobileMenuOpen ? "Fechar menu" : "Abrir menu"}
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
             {mobileMenuOpen ? <X className="w-6 h-6 text-gray-700" /> : <Menu className="w-6 h-6 text-gray-700" />}
           </button>
         </div>
       </div>
 
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-gray-100 bg-white px-4 py-6 space-y-4">
-          <Link to="/properties" className="block text-gray-700 hover:text-blue-600 py-2" onClick={() => setMobileMenuOpen(false)}>
-            Acomodações
-          </Link>
-          <Link to="/notifications" className="block text-gray-700 hover:text-blue-600 py-2" onClick={() => setMobileMenuOpen(false)}>
-            Notificações
-          </Link>
+        <div className="lg:hidden border-t border-gray-100 bg-white px-4 py-6 space-y-4">
+          {links.map(({ to, label, icon: Icon }) => (
+            <NavLink key={to} to={to} className={linkClass} onClick={closeMenu}>
+              <Icon className="w-4 h-4" /> {label}
+            </NavLink>
+          ))}
           {user ? (
             <>
-              <Link to="/dashboard" className="block text-gray-700 hover:text-blue-600 py-2" onClick={() => setMobileMenuOpen(false)}>Meu Painel</Link>
-              <Link to="/properties/new" className="block text-blue-600 font-medium py-2" onClick={() => setMobileMenuOpen(false)}>+ Anunciar imóvel</Link>
-              <button onClick={() => { handleLogout(); setMobileMenuOpen(false); }} className="block w-full text-left text-red-500 py-2">Sair</button>
+              <Link to="/properties/new" className="block text-sm text-blue-600 font-medium py-2" onClick={closeMenu}>+ Anunciar imóvel</Link>
+              <button onClick={handleLogout} className="block w-full text-left text-sm text-red-500 py-2">Sair</button>
             </>
           ) : (
             <div className="space-y-2 pt-2">
-              <Link to="/login" className="block w-full text-center border border-gray-200 rounded-lg py-2 text-gray-700" onClick={() => setMobileMenuOpen(false)}>Entrar</Link>
-              <Link to="/signup" className="block w-full text-center bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-lg py-2" onClick={() => setMobileMenuOpen(false)}>Cadastrar</Link>
+              <Link to="/login" className="block w-full text-center border border-gray-200 rounded-lg py-2 text-gray-700" onClick={closeMenu}>Entrar</Link>
+              <Link to="/signup" className="block w-full text-center bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-lg py-2" onClick={closeMenu}>Cadastrar</Link>
             </div>
           )}
         </div>

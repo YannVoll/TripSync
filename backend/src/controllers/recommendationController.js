@@ -1,46 +1,71 @@
 const prisma = require("../prisma");
+const { withRating } = require("../lib/ratings");
+
+const propertyInclude = {
+  owner: { select: { id: true, name: true } },
+  reviews: { select: { rating: true } },
+};
+
+function cityFromDestination(destination) {
+  return destination.split(/[,\-–]/)[0].trim();
+}
 
 const getRecommendations = async (req, res) => {
   try {
-    const { type, limit = 5 } = req.query;
     const userId = req.userId;
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 6, 1), 20);
 
-    const userTrips = await prisma.trip.findMany({
-      where: { ownerId: userId },
-      select: { tripType: true }
+    const upcomingTrips = await prisma.trip.findMany({
+      where: {
+        endDate: { gte: new Date() },
+        destination: { not: null },
+        OR: [{ ownerId: userId }, { collaborators: { some: { userId } } }],
+      },
+      select: { id: true, title: true, destination: true, startDate: true },
+      orderBy: { startDate: "asc" },
     });
 
-    const tripTypeCounts = {};
-    userTrips.forEach(trip => {
-      tripTypeCounts[trip.tripType] = (tripTypeCounts[trip.tripType] || 0) + 1;
-    });
+    const seen = new Set();
+    const items = [];
 
-    let recommendedTypes = Object.entries(tripTypeCounts)
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 3)
-      .map(([type]) => type);
-
-    if (recommendedTypes.length === 0) {
-      recommendedTypes = ["BEACH", "CITY_TOUR", "MOUNTAIN"];
+    for (const trip of upcomingTrips) {
+      const city = cityFromDestination(trip.destination);
+      if (!city) continue;
+      const properties = await prisma.property.findMany({
+        where: {
+          active: true,
+          ownerId: { not: userId },
+          city: { contains: city, mode: "insensitive" },
+        },
+        include: propertyInclude,
+        take: limit,
+      });
+      for (const property of properties) {
+        if (seen.has(property.id)) continue;
+        seen.add(property.id);
+        items.push({
+          ...withRating(property),
+          reason: "trip",
+          trip: { id: trip.id, title: trip.title, startDate: trip.startDate },
+        });
+      }
     }
 
-    const recommendations = await prisma.trip.findMany({
-      where: {
-        tripType: { in: recommendedTypes },
-        ownerId: { not: userId }
-      },
-      include: {
-        owner: { select: { name: true } },
-        activities: { take: 3 }
-      },
-      take: limit,
-      orderBy: { createdAt: "desc" }
-    });
+    if (items.length < limit) {
+      const popular = await prisma.property.findMany({
+        where: { active: true, ownerId: { not: userId }, id: { notIn: [...seen] } },
+        include: propertyInclude,
+      });
+      popular
+        .map(withRating)
+        .sort((a, b) => (b.avgRating ?? 0) - (a.avgRating ?? 0) || b.reviewCount - a.reviewCount)
+        .slice(0, limit - items.length)
+        .forEach((property) => items.push({ ...property, reason: "popular" }));
+    }
 
     res.json({
-      recommendedTypes,
-      recommendations,
-      message: `Recomendações baseadas no seu histórico de viagens`
+      destinations: [...new Set(upcomingTrips.map((trip) => trip.destination))],
+      items: items.slice(0, limit),
     });
   } catch (e) {
     console.error(e);

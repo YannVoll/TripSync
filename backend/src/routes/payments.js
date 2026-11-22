@@ -2,18 +2,25 @@ const crypto = require("crypto");
 const router = require("express").Router();
 const auth = require("../middleware/auth");
 const prisma = require("../prisma");
+const { parseId } = require("../lib/tripAccess");
+
+const METHODS = ["credit_card", "pix", "boleto"];
 
 router.post("/process", auth, async (req, res) => {
   try {
-    const { bookingId, method, cardData } = req.body;
+    const { method, cardData } = req.body;
+    const bookingId = parseId(req.body.bookingId);
+    if (!bookingId) return res.status(400).json({ error: "Reserva inválida." });
+    if (!METHODS.includes(method)) return res.status(400).json({ error: "Forma de pagamento inválida." });
 
     const booking = await prisma.booking.findUnique({
-      where: { id: parseInt(bookingId) },
+      where: { id: bookingId },
       include: { property: { select: { title: true } } },
     });
 
     if (!booking) return res.status(404).json({ error: "Reserva não encontrada." });
     if (booking.guestId !== req.userId) return res.status(403).json({ error: "Sem permissão." });
+    if (booking.status === "CANCELLED") return res.status(400).json({ error: "Esta reserva foi cancelada." });
     if (booking.paymentStatus === "PAID") return res.status(400).json({ error: "Reserva já paga." });
 
     await new Promise((r) => setTimeout(r, 1500));
@@ -66,16 +73,53 @@ router.post("/process", auth, async (req, res) => {
   }
 });
 
+router.post("/booking/:id/confirm", auth, async (req, res) => {
+  try {
+    const id = parseId(req.params.id);
+    const booking = id ? await prisma.booking.findUnique({ where: { id } }) : null;
+    if (!booking) return res.status(404).json({ error: "Reserva não encontrada." });
+    if (booking.guestId !== req.userId) return res.status(403).json({ error: "Sem permissão." });
+    if (booking.status === "CANCELLED") return res.status(400).json({ error: "Esta reserva foi cancelada." });
+    if (booking.paymentStatus === "PAID") return res.status(400).json({ error: "Reserva já paga." });
+    if (!["pix", "boleto"].includes(booking.paymentMethod)) {
+      return res.status(400).json({ error: "Gere um PIX ou boleto antes de confirmar o pagamento." });
+    }
+
+    await new Promise((r) => setTimeout(r, 800));
+
+    const updated = await prisma.booking.update({
+      where: { id: booking.id },
+      data: {
+        paymentStatus: "PAID",
+        status: "CONFIRMED",
+        paymentData: { ...(booking.paymentData ?? {}), confirmedAt: new Date() },
+      },
+    });
+    res.json({
+      success: true,
+      booking: updated,
+      message: `Pagamento via ${booking.paymentMethod === "pix" ? "PIX" : "boleto"} confirmado! Reserva confirmada.`,
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Erro ao confirmar pagamento." });
+  }
+});
+
 router.get("/booking/:id", auth, async (req, res) => {
   try {
-    const booking = await prisma.booking.findUnique({
-      where: { id: parseInt(req.params.id) },
-      include: { property: { select: { title: true, city: true } } },
-    });
+    const id = parseId(req.params.id);
+    const booking = id
+      ? await prisma.booking.findUnique({
+          where: { id },
+          include: { property: { select: { title: true, city: true } } },
+        })
+      : null;
     if (!booking) return res.status(404).json({ error: "Reserva não encontrada." });
     if (booking.guestId !== req.userId) return res.status(403).json({ error: "Sem permissão." });
     res.json(booking);
   } catch (e) {
+    console.error(e);
     res.status(500).json({ error: "Erro interno." });
   }
 });

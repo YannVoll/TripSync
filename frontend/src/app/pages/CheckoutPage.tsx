@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { CreditCard, QrCode, FileText, CheckCircle, XCircle, Copy, ArrowLeft, Lock } from "lucide-react";
 import Header from "../components/Header";
-import api from "../../lib/axios";
+import axios from "axios";
+import api, { getErrorMessage } from "../../lib/axios";
 import { toast } from "sonner";
 
 interface Booking {
@@ -11,10 +12,16 @@ interface Booking {
   checkOut: string;
   totalPrice: number;
   paymentStatus: string;
+  paymentMethod: string | null;
+  paymentData: { pixCode?: string; boletoCode?: string } | null;
   property: { title: string; city: string };
 }
 
 type Method = "credit_card" | "pix" | "boleto";
+
+function isPendingMethod(method: string | null): method is "pix" | "boleto" {
+  return method === "pix" || method === "boleto";
+}
 
 export default function CheckoutPage() {
   const { bookingId } = useParams();
@@ -23,20 +30,32 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [method, setMethod] = useState<Method>("credit_card");
-  const [step, setStep] = useState<"payment" | "success" | "failed">("payment");
+  const [step, setStep] = useState<"payment" | "success" | "failed" | "confirmed">("payment");
   const [pixCode, setPixCode] = useState("");
   const [boletoCode, setBoletoCode] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [card, setCard] = useState({ number: "", name: "", expiry: "", cvv: "" });
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
-    api.get(`/payments/booking/${bookingId}`).then((res) => {
+    api.get<Booking>(`/payments/booking/${bookingId}`).then((res) => {
       if (res.data.paymentStatus === "PAID") {
         toast.success("Esta reserva já está paga!");
         navigate("/dashboard");
         return;
       }
       setBooking(res.data);
+      if (res.data.paymentStatus === "PENDING" && isPendingMethod(res.data.paymentMethod)) {
+        setMethod(res.data.paymentMethod);
+        setPixCode(res.data.paymentData?.pixCode ?? "");
+        setBoletoCode(res.data.paymentData?.boletoCode ?? "");
+        setSuccessMsg(
+          res.data.paymentMethod === "pix"
+            ? "Seu PIX já foi gerado e está aguardando pagamento."
+            : "Seu boleto já foi gerado e está aguardando pagamento."
+        );
+        setStep("success");
+      }
     }).catch(() => {
       toast.error("Reserva não encontrada.");
       navigate("/dashboard");
@@ -71,15 +90,29 @@ export default function CheckoutPage() {
       if (res.data.pixCode) setPixCode(res.data.pixCode);
       if (res.data.boletoCode) setBoletoCode(res.data.boletoCode);
       setStep("success");
-    } catch (err: any) {
-      if (err.response?.status === 402) {
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 402) {
         setStep("failed");
-        toast.error(err.response.data.error);
+        toast.error(error.response.data.error);
       } else {
-        toast.error("Erro ao processar pagamento.");
+        toast.error(getErrorMessage(error, "Erro ao processar pagamento."));
       }
     } finally {
       setProcessing(false);
+    }
+  };
+
+  const handleConfirm = async () => {
+    setConfirming(true);
+    try {
+      const res = await api.post(`/payments/booking/${bookingId}/confirm`);
+      setSuccessMsg(res.data.message);
+      setStep("confirmed");
+      toast.success("Pagamento confirmado!");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Não foi possível confirmar o pagamento."));
+    } finally {
+      setConfirming(false);
     }
   };
 
@@ -257,6 +290,40 @@ export default function CheckoutPage() {
                 </div>
               )}
 
+              {method !== "credit_card" && (
+                <div className="mb-4 rounded-xl border border-dashed border-amber-300 bg-amber-50 p-4 text-left">
+                  <p className="text-sm font-medium text-amber-800">Ambiente de demonstração</p>
+                  <p className="mt-1 text-xs text-amber-700">
+                    Em produção, o banco avisaria o TripSync quando o {method === "pix" ? "PIX" : "boleto"} fosse pago.
+                    Aqui você pode simular essa confirmação.
+                  </p>
+                  <button
+                    onClick={handleConfirm}
+                    disabled={confirming}
+                    className="mt-3 w-full rounded-xl bg-amber-500 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-600 disabled:opacity-60"
+                  >
+                    {confirming ? "Confirmando..." : "Simular confirmação do pagamento"}
+                  </button>
+                  <button
+                    onClick={() => setStep("payment")}
+                    className="mt-2 w-full text-xs font-medium text-amber-800 hover:underline"
+                  >
+                    Escolher outra forma de pagamento
+                  </button>
+                </div>
+              )}
+
+              <Link to="/dashboard" className="inline-block w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-800 transition-all">
+                Ver minhas reservas
+              </Link>
+            </div>
+          )}
+
+          {step === "confirmed" && (
+            <div className="bg-white rounded-2xl shadow-sm p-8 text-center">
+              <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Reserva confirmada!</h2>
+              <p className="text-gray-500 mb-6">{successMsg}</p>
               <Link to="/dashboard" className="inline-block w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-800 transition-all">
                 Ver minhas reservas
               </Link>

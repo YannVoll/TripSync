@@ -1,113 +1,104 @@
 const prisma = require("../prisma");
 const { sendTestEmail } = require("../services/emailService");
+const { getTripAccess, parseId } = require("../lib/tripAccess");
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function reminderDate(startDate, daysBefore) {
+  const date = new Date(startDate);
+  date.setDate(date.getDate() - daysBefore);
+  return date;
+}
+
+async function validateRequest(req, res) {
+  const tripId = parseId(req.body.tripId);
+  const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  if (!tripId) {
+    res.status(400).json({ error: "Selecione uma viagem válida" });
+    return null;
+  }
+  if (!EMAIL_REGEX.test(email)) {
+    res.status(400).json({ error: "Informe um email válido" });
+    return null;
+  }
+  const access = await getTripAccess(tripId, req.userId);
+  if (!access) {
+    res.status(404).json({ error: "Viagem não encontrada" });
+    return null;
+  }
+  if (!access.canRead) {
+    res.status(403).json({ error: "Sem permissão para acessar esta viagem" });
+    return null;
+  }
+  return { trip: access.trip, email };
+}
+
+function emailErrorResponse(error) {
+  if (error.code === "EMAIL_CONFIGURATION") return [503, error.message];
+  if (error.code === "EAUTH" || error.responseCode === 535) {
+    return [502, "O Resend recusou a chave de API. Confira RESEND_API_KEY no arquivo backend/.env."];
+  }
+  if (["ETIMEDOUT", "ECONNECTION", "ESOCKET"].includes(error.code)) {
+    return [502, "Não foi possível conectar ao SMTP do Resend. Confira a conexão com a internet."];
+  }
+  if (error.code === "EENVELOPE" || error.responseCode === 550) {
+    return [
+      502,
+      "O Resend recusou o remetente ou destinatário. Com onboarding@resend.dev, envie somente para o email da sua conta Resend; para outros destinos, configure um domínio verificado em resend.com/domains e defina EMAIL_FROM.",
+    ];
+  }
+  return [502, "O SMTP do Resend não conseguiu enviar o email. Consulte o log do backend para ver o erro."];
+}
 
 const sendTestNotification = async (req, res) => {
   try {
-    const tripId = Number(req.body.tripId);
-    const { email } = req.body;
-    const userId = req.userId;
-
-    if (!Number.isInteger(tripId) || tripId <= 0) {
-      return res.status(400).json({ error: "Selecione uma viagem válida" });
-    }
-    if (typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ error: "Informe um email válido" });
-    }
-
-    const trip = await prisma.trip.findUnique({
-      where: { id: tripId },
-      include: { collaborators: true },
-    });
-    if (!trip) {
-      return res.status(404).json({ error: "Viagem não encontrada" });
-    }
-
-    const hasAccess =
-      trip.ownerId === userId ||
-      trip.collaborators.some((collaborator) => collaborator.userId === userId);
-    if (!hasAccess) {
-      return res.status(403).json({ error: "Sem permissão para acessar esta viagem" });
-    }
-
-    const result = await sendTestEmail(email, trip.title);
+    const valid = await validateRequest(req, res);
+    if (!valid) return;
+    const result = await sendTestEmail(valid.email, valid.trip.title);
     res.json({
       message: "O servidor de email aceitou a mensagem de teste.",
       messageId: result.messageId,
     });
   } catch (error) {
-    if (error.code === "EMAIL_CONFIGURATION") {
-      return res.status(503).json({ error: error.message });
-    }
-    console.error("Erro ao enviar email de teste:", error);
-    if (error.code === "EAUTH" || error.responseCode === 535) {
-      return res.status(502).json({
-        error: "O Resend recusou a chave de API. Confira RESEND_API_KEY no arquivo backend/.env.",
-      });
-    }
-    if (error.code === "ETIMEDOUT" || error.code === "ECONNECTION" || error.code === "ESOCKET") {
-      return res.status(502).json({
-        error: "Não foi possível conectar ao SMTP do Resend. Confira a conexão com a internet.",
-      });
-    }
-    if (error.code === "EENVELOPE" || error.responseCode === 550) {
-      return res.status(502).json({
-        error:
-          "O Resend recusou o remetente ou destinatário. Com onboarding@resend.dev, envie somente para o email da sua conta Resend; para outros destinos, configure um domínio verificado em resend.com/domains e defina EMAIL_FROM.",
-      });
-    }
-    res.status(502).json({
-      error: "O SMTP do Resend não conseguiu enviar o email. Consulte o log do backend para ver o erro.",
-    });
+    if (error.code !== "EMAIL_CONFIGURATION") console.error("Erro ao enviar email de teste:", error);
+    const [status, message] = emailErrorResponse(error);
+    res.status(status).json({ error: message });
   }
 };
 
 const scheduleNotification = async (req, res) => {
   try {
-    const tripId = Number(req.body.tripId);
-    const { email } = req.body;
-    const daysBefore = Number(req.body.daysBefore ?? req.body.daysBeforeTrip ?? 1);
-    const userId = req.userId;
-
-    if (!Number.isInteger(tripId) || tripId <= 0) {
-      return res.status(400).json({ error: "Selecione uma viagem válida" });
-    }
-    if (typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ error: "Informe um email válido" });
-    }
+    const daysBefore = Number(req.body.daysBefore ?? 1);
     if (!Number.isInteger(daysBefore) || daysBefore < 1 || daysBefore > 30) {
       return res.status(400).json({ error: "Os dias de antecedência devem estar entre 1 e 30" });
     }
+    const valid = await validateRequest(req, res);
+    if (!valid) return;
+    const { trip, email } = valid;
 
-    const trip = await prisma.trip.findUnique({
-      where: { id: tripId },
-      include: { collaborators: true }
-    });
-
-    if (!trip) return res.status(404).json({ error: "Viagem não encontrada" });
-
-    const isOwner = trip.ownerId === userId;
-    const isCollaborator = trip.collaborators.some(c => c.userId === userId);
-
-    if (!isOwner && !isCollaborator) {
-      return res.status(403).json({ error: "Sem permissão" });
+    if (new Date(trip.startDate) <= new Date()) {
+      return res.status(400).json({ error: "Esta viagem já começou. Escolha uma viagem futura." });
     }
 
-    const tripStartDate = new Date(trip.startDate);
-    const notificationDate = new Date(tripStartDate);
-    notificationDate.setDate(notificationDate.getDate() - daysBefore);
+    const duplicate = await prisma.tripNotification.findFirst({
+      where: { tripId: trip.id, userId: req.userId, email, daysBefore, sentAt: null },
+    });
+    if (duplicate) {
+      return res.status(409).json({ error: "Você já agendou este lembrete." });
+    }
 
     const notification = await prisma.tripNotification.create({
-      data: {
-        tripId,
-        userId,
-        email,
-        daysBefore
-      }
+      data: { tripId: trip.id, userId: req.userId, email, daysBefore },
+      include: { trip: { select: { id: true, title: true, startDate: true } } },
     });
 
+    const sendAt = reminderDate(trip.startDate, daysBefore);
     res.status(201).json({
       notification,
-      message: `Notificação agendada para ${notificationDate.toLocaleDateString('pt-BR')}`
+      message:
+        sendAt <= new Date()
+          ? "Lembrete agendado! Como a data já chegou, ele será enviado no próximo minuto."
+          : `Lembrete agendado para ${sendAt.toLocaleDateString("pt-BR")}.`,
     });
   } catch (e) {
     console.error(e);
@@ -117,18 +108,36 @@ const scheduleNotification = async (req, res) => {
 
 const getMyNotifications = async (req, res) => {
   try {
-    const userId = req.userId;
-
     const notifications = await prisma.tripNotification.findMany({
-      where: { userId },
-      include: { trip: true },
-      orderBy: { createdAt: "asc" }
+      where: { userId: req.userId },
+      include: { trip: { select: { id: true, title: true, startDate: true } } },
+      orderBy: { createdAt: "desc" },
     });
-
-    res.json(notifications);
+    res.json(
+      notifications.map((notification) => ({
+        ...notification,
+        sendAt: reminderDate(notification.trip.startDate, notification.daysBefore),
+      }))
+    );
   } catch (e) {
+    console.error(e);
     res.status(500).json({ error: "Erro ao buscar notificações" });
   }
 };
 
-module.exports = { scheduleNotification, getMyNotifications, sendTestNotification };
+const deleteNotification = async (req, res) => {
+  try {
+    const id = parseId(req.params.id);
+    const notification = id ? await prisma.tripNotification.findUnique({ where: { id } }) : null;
+    if (!notification || notification.userId !== req.userId) {
+      return res.status(404).json({ error: "Lembrete não encontrado" });
+    }
+    await prisma.tripNotification.delete({ where: { id: notification.id } });
+    res.json({ message: "Lembrete removido" });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Erro ao remover lembrete" });
+  }
+};
+
+module.exports = { scheduleNotification, getMyNotifications, sendTestNotification, deleteNotification };

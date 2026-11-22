@@ -11,8 +11,17 @@ const transporter = nodemailer.createTransport({
   auth: resendApiKey ? { user: "resend", pass: resendApiKey } : undefined,
 });
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function assertEmailConfigured() {
-  if (!resendApiKey) {
+  if (!resendApiKey || resendApiKey === "re_your_api_key") {
     const error = new Error(
       "Configure RESEND_API_KEY no arquivo backend/.env. Crie uma chave em resend.com/api-keys."
     );
@@ -23,13 +32,15 @@ function assertEmailConfigured() {
 
 const sendTripReminder = async (userEmail, tripTitle, daysUntilTrip) => {
   assertEmailConfigured();
-  const mailOptions = {
+  const title = escapeHtml(tripTitle);
+  const days = daysUntilTrip === 1 ? "1 dia" : `${daysUntilTrip} dias`;
+  return transporter.sendMail({
     from: emailFrom,
     to: userEmail,
     subject: `⏰ Lembrete: Sua viagem "${tripTitle}" está chegando!`,
     html: `
       <h2>Olá! 👋</h2>
-      <p>Sua viagem <strong>${tripTitle}</strong> começa em <strong>${daysUntilTrip} dias</strong>!</p>
+      <p>Sua viagem <strong>${title}</strong> começa em <strong>${days}</strong>!</p>
       <p>Não se esqueça de:</p>
       <ul>
         <li>Confirmar voos e hospedagem</li>
@@ -39,10 +50,8 @@ const sendTripReminder = async (userEmail, tripTitle, daysUntilTrip) => {
       </ul>
       <p><a href="${process.env.FRONTEND_URL}/trips" style="background-color: #3b82f6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Ver Viagem</a></p>
       <p>Ótima viagem! 🌍</p>
-    `
-  };
-
-  return transporter.sendMail(mailOptions);
+    `,
+  });
 };
 
 const sendTestEmail = async (userEmail, tripTitle) => {
@@ -53,27 +62,10 @@ const sendTestEmail = async (userEmail, tripTitle) => {
     subject: "Teste de envio de email - TripSync",
     html: `
       <h2>Teste de envio concluído</h2>
-      <p>Este é um email de teste do TripSync para a viagem <strong>${tripTitle}</strong>.</p>
+      <p>Este é um email de teste do TripSync para a viagem <strong>${escapeHtml(tripTitle)}</strong>.</p>
       <p>Se você recebeu esta mensagem, a configuração SMTP conseguiu entregar o email ao servidor destinatário.</p>
     `,
   });
 };
 
-const sendWelcomeEmail = async (userEmail, userName) => {
-  assertEmailConfigured();
-  const mailOptions = {
-    from: emailFrom,
-    to: userEmail,
-    subject: "Bem-vindo ao TripSync! 🧳",
-    html: `
-      <h2>Bem-vindo, ${userName}!</h2>
-      <p>Estamos felizes por você fazer parte da comunidade TripSync.</p>
-      <p>Comece a planejar suas viagens de forma colaborativa!</p>
-      <p><a href="${process.env.FRONTEND_URL}" style="background-color: #3b82f6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Acessar TripSync</a></p>
-    `
-  };
-
-  return transporter.sendMail(mailOptions);
-};
-
-module.exports = { sendTripReminder, sendTestEmail, sendWelcomeEmail };
+module.exports = { sendTripReminder, sendTestEmail, escapeHtml };

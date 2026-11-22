@@ -1,15 +1,29 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Plane } from "lucide-react";
 import { toast } from "sonner";
+import axios from "axios";
+import { getErrorMessage } from "../../lib/axios";
+
+function safeRedirect(path: string | null) {
+  return path && path.startsWith("/") && !path.startsWith("//") ? path : "/dashboard";
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { user, login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = safeRedirect(searchParams.get("from"));
+
+  useEffect(() => {
+    if (searchParams.get("expired")) toast.info("Sua sessão expirou. Entre novamente.");
+  }, [searchParams]);
+
+  if (user) return <Navigate to={redirectTo} replace />;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,9 +31,13 @@ export default function LoginPage() {
     try {
       await login(email, password);
       toast.success("Bem-vindo de volta!");
-      navigate("/dashboard");
-    } catch {
-      toast.error("Email ou senha inválidos.");
+      navigate(redirectTo, { replace: true });
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        toast.error("Email ou senha inválidos.");
+      } else {
+        toast.error(getErrorMessage(error, "Não foi possível entrar."));
+      }
     } finally {
       setLoading(false);
     }

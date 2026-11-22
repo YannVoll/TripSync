@@ -12,13 +12,12 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import axios from "axios";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import api from "../../lib/axios";
+import api, { getErrorMessage } from "../../lib/axios";
 
 interface Checklist {
-  items: { id: number }[];
+  items: { id: number; completed: boolean }[];
 }
 
 interface Trip {
@@ -47,11 +46,8 @@ const tripTypes: Record<string, string> = {
 const inputClassName =
   "w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100";
 
-function getErrorMessage(error: unknown, fallback: string) {
-  if (axios.isAxiosError<{ error?: string }>(error)) {
-    return error.response?.data?.error ?? fallback;
-  }
-  return error instanceof Error ? error.message : fallback;
+function plural(count: number, singular: string, pluralForm: string) {
+  return `${count} ${count === 1 ? singular : pluralForm}`;
 }
 
 function formatDate(date: string) {
@@ -316,17 +312,22 @@ export default function Trips() {
                     {formatDate(trip.startDate)} – {formatDate(trip.endDate)}
                   </p>
                   <div className="mt-auto grid w-full grid-cols-3 gap-2 border-t border-gray-100 pt-4">
-                    <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                      <Users className="h-4 w-4 text-indigo-500" />
-                      {trip.collaborators.length}
+                    <span
+                      className="flex items-center gap-1.5 text-xs text-gray-500"
+                      title="Participantes (você e colaboradores)"
+                    >
+                      <Users className="h-4 w-4 shrink-0 text-indigo-500" />
+                      {plural(trip.collaborators.length + 1, "pessoa", "pessoas")}
                     </span>
                     <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                      <Check className="h-4 w-4 text-blue-500" />
-                      {trip.activities.length} atividades
+                      <Check className="h-4 w-4 shrink-0 text-blue-500" />
+                      {plural(trip.activities.length, "atividade", "atividades")}
                     </span>
-                    <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                      <ClipboardCheck className="h-4 w-4 text-emerald-500" />
-                      {trip.checklist?.items.length ?? 0} itens
+                    <span className="flex items-center gap-1.5 text-xs text-gray-500" title="Itens concluídos da checklist">
+                      <ClipboardCheck className="h-4 w-4 shrink-0 text-emerald-500" />
+                      {trip.checklist
+                        ? `${trip.checklist.items.filter((item) => item.completed).length}/${trip.checklist.items.length} itens`
+                        : "Sem checklist"}
                     </span>
                   </div>
                 </button>
